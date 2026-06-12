@@ -1,0 +1,31 @@
+name = "patcher"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+account_id = "7367c028857d9916fee45e693edbe17f"
+
+[build]
+command = "node scripts/copy-engine-assets.js && pnpm install && pnpm run build"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[rules]]
+type = "ESModule"
+globs = ["**/*.js", "**/*.mjs"]
+
+
+[vars]
+ENVIRONMENT = "development"
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+route = "production.patcher.example.com/*"
+
+[env.staging]
+vars = { ENVIRONMENT = "staging" }
+route = "staging.patcher.example.com/*"
+
+[env.testing]
+vars = { ENVIRONMENT = "testing" }
+route = "testing.patcher.example.com/*"

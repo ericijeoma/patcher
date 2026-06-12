@@ -1,0 +1,9 @@
+{
+  "model": "@cf/qwen/qwen2.5-coder-32b-instruct",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Say hello in one sentence"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "scripts": {
+    "build:wasm:worker": "wasm-pack build --target bundler --features cloud-test",
+    "build:wasm:client": "wasm-pack build --target web --out-dir pkg-web",
+    "build:wasm": "pnpm run build:wasm:worker && pnpm run build:wasm:client",
+    "analyze": "node client/analyze.js",
+    "analyze:prod": "node client/analyze.js"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260609.1",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,6 @@
+/target
+node_modules
+client/.wasm-cache/
+worker/public/engine.wasm
+worker/public/engine.js
+pkg-web/

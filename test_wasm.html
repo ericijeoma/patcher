@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WASM Interface Test</title>
+</head>
+<body>
+    <h1>WASM Interface Test</h1>
+    <div id="output"></div>
+
+    <script type="module">
+        import init, { analyze_binary_buffer } from './pkg/native_core.js';
+
+        async function runTest() {
+            const output = document.getElementById('output');
+
+            try {
+                // Initialize WASM
+                output.innerHTML += '<p>Initializing WASM...</p>';
+                await init();
+                output.innerHTML += '<p>WASM initialized successfully</p>';
+
+                // Create a simple test binary (ELF header)
+                const testBinary = new Uint8Array([
+                    0x7f, 0x45, 0x4c, 0x46, // ELF magic
+                    0x02,                     // 64-bit
+                    0x01,                     // Little endian
+                    0x01,                     // ELF version 1
+                    0x00,                     // OS ABI
+                    0x00, 0x00, 0x00, 0x00,   // Padding
+                    0x00, 0x00, 0x00, 0x00,   // Padding
+                    0x00, 0x00, 0x00, 0x00,   // Padding
+                    0x00, 0x00, 0x00, 0x00,   // Padding
+                    0x00, 0x00, 0x00, 0x00,   // Padding
+                    0x00, 0x00, 0x00, 0x00    // Padding
+                ]);
+
+                // Test the analyze_binary_buffer function
+                output.innerHTML += '<p>Testing analyze_binary_buffer...</p>';
+                const result = analyze_binary_buffer(testBinary);
+                output.innerHTML += '<p>Analysis result: ' + result + '</p>';
+
+                // Check if result is valid JSON
+                try {
+                    const parsed = JSON.parse(result);
+                    output.innerHTML += '<p>Result is valid JSON</p>';
+                    if (parsed.error) {
+                        output.innerHTML += '<p>Error in analysis: ' + parsed.error + '</p>';
+                    } else {
+                        output.innerHTML += '<p>Analysis completed successfully</p>';
+                    }
+                } catch (e) {
+                    output.innerHTML += '<p>Result is not valid JSON: ' + e.message + '</p>';
+                }
+
+            } catch (error) {
+                output.innerHTML += '<p>Error testing WASM interface: ' + error.message + '</p>';
+                console.error('Error:', error);
+            }
+        }
+
+        // Run the test
+        runTest();
+    </script>
+</body>
+</html>
