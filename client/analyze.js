@@ -13,13 +13,21 @@ const WASM_CACHE_PATH = join(WASM_CACHE_DIR, 'engine.wasm');
 const [, , binaryPath, workerUrl = DEFAULT_WORKER_URL] = process.argv;
 
 if (!binaryPath) {
-  console.error('Usage: node client/analyze.js <path-to-binary> [worker-url]');
+  console.error('Usage: HEXIS_API_KEY=hxs_live_xxx node client/analyze.js <path-to-binary> [worker-url]');
   process.exit(1);
 }
 
 const resolvedBinaryPath = resolve(binaryPath);
 if (!existsSync(resolvedBinaryPath)) {
   console.error(`Error: File not found: ${resolvedBinaryPath}`);
+  process.exit(1);
+}
+
+// Read API key from environment variable
+const apiKey = process.env.HEXIS_API_KEY;
+if (!apiKey) {
+  console.error('[error] HEXIS_API_KEY environment variable is not set.');
+  console.error('        Get your key at https://hexis.dev/dashboard/keys');
   process.exit(1);
 }
 
@@ -78,12 +86,16 @@ async function main() {
   const telemetryKB = (telemetryJson.length / 1024).toFixed(1);
   console.log(`      Done. Telemetry: ${telemetryKB} KB (binary stayed local ✓)`);
 
-  console.log(`[4/4] Requesting AI triage from ${workerUrl}/v1/analyze/triage`);
-  const triageRes = await fetch(`${workerUrl}/v1/analyze/triage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: telemetryJson,
-  });
+console.log(`[4/4] Requesting AI triage from ${workerUrl}/v1/analyze/triage`);
+const triageRes = await fetch(`${workerUrl}/v1/analyze/triage`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+    'X-Filename': path.basename(resolvedBinaryPath),
+  },
+  body: telemetryJson,
+});
 
   if (!triageRes.ok) {
     const body = await triageRes.text();

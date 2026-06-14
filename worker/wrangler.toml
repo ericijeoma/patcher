@@ -3,8 +3,26 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 account_id = "7367c028857d9916fee45e693edbe17f"
 
+[[ratelimit]]
+binding = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[vars]
+APP_URL = "https://hexis.dev"
+STRIPE_PRICE_DEVELOPER = "price_xxx"
+STRIPE_PRICE_TEAM = "price_xxx"
+STRIPE_PRICE_ENTERPRISE = "price_xxx"
+
 [build]
 command = "node scripts/copy-engine-assets.js && pnpm install && pnpm run build"
+
+[observability]
+enabled = true
 
 [assets]
 directory = "./public"
