@@ -1,4 +1,5 @@
-import { betterAuth } from 'better-auth';
+import { betterAuth } from 'better-auth/minimal';
+import { dash } from '@better-auth/infra';
 import type { Env } from '../index'; // Imports the Env interface to fix the type error
 
 export function createAuth(env: Env) {
@@ -28,6 +29,12 @@ export function createAuth(env: Env) {
         }
       },
       delete: async (key) => await env.AUTH_KV.delete(key)
-    }
+    },
+    plugins: [
+      dash({ 
+                // Explicitly tell the plugin where the API key is!
+                apiKey: env.BETTER_AUTH_API_KEY 
+            })
+    ]
   });
 }

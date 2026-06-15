@@ -1,25 +1,30 @@
 name = "patcher"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+compatibility_flags = [ "nodejs_compat" ]
 account_id = "7367c028857d9916fee45e693edbe17f"
 
-[[ratelimit]]
-binding = "RATE_LIMITER"
+# 1. Force minification to drastically reduce bundle size (Placed at top level)
+minify = true
+
+[vars]
+# 2. Don't forget your auth base URL!
+
+
+APP_URL = "http://localhost:3000"
+PAYSTACK_PUBLIC_KEY = "pk_test_YOUR_PAYSTACK_PUBLIC_KEY"
+
+[[ratelimits]]
+name = "RATE_LIMITER"
 namespace_id = "1001"
 simple = { limit = 10, period = 60 }
 
 [[kv_namespaces]]
 binding = "AUTH_KV"
-id = "YOUR_KV_NAMESPACE_ID"
-
-[vars]
-APP_URL = "https://hexis.dev"
-STRIPE_PRICE_DEVELOPER = "price_xxx"
-STRIPE_PRICE_TEAM = "price_xxx"
-STRIPE_PRICE_ENTERPRISE = "price_xxx"
+id = "8dea59dec76343849d9d39570ae86f71"
 
 [build]
-command = "node scripts/copy-engine-assets.js && pnpm install && pnpm run build"
+command = "node scripts/copy-engine-assets.js && pnpm run build"
 
 [observability]
 enabled = true
@@ -28,22 +33,14 @@ enabled = true
 directory = "./public"
 binding = "ASSETS"
 
+# 3. Rule Block 1: Handle standard JavaScript modules
 [[rules]]
 type = "ESModule"
 globs = ["**/*.js", "**/*.mjs"]
+fallthrough = true
 
-
-[vars]
-ENVIRONMENT = "development"
-
-[env.production]
-vars = { ENVIRONMENT = "production" }
-route = "production.patcher.example.com/*"
-
-[env.staging]
-vars = { ENVIRONMENT = "staging" }
-route = "staging.patcher.example.com/*"
-
-[env.testing]
-vars = { ENVIRONMENT = "testing" }
-route = "testing.patcher.example.com/*"
+# 4. Rule Block 2: Tell Wrangler to treat WASM as native binaries, not huge strings
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true

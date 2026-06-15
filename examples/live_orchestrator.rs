@@ -42,7 +42,7 @@ fn main() {
 
     // 3. Feed it to the master API
     println!("Executing static analysis pipeline...\n");
-    match analyze_executable(&file_bytes, 64) {
+    match analyze_executable(&file_bytes) {
         Ok(report) => {
             println!("[SUCCESS] Full Analysis Complete!");
             println!("- Virtual Base Address: 0x{:X}", report.virtual_base_address);

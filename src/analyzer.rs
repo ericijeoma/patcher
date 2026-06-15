@@ -1,3 +1,4 @@
+use object::Object;
 use crate::loader::extract_text_section;
 use crate::loader::imports::{extract_imports, is_untrusted_source};
 use crate::lifter::lift_native_instructions;
@@ -20,28 +21,31 @@ pub struct AnalysisReport {
 
 /// The unified entrypoint for the static analysis engine.
 /// Ingests raw executable bytes, orchestrates the extraction, decoding, and mapping phases.
-pub fn analyze_executable(raw_bytes: &[u8], bitness: u32) -> Result<AnalysisReport, String> {
-    // Step 0: Extract imports and count suspicious ones
+pub fn analyze_executable(raw_bytes: &[u8]) -> Result<AnalysisReport, String> {
+    
+    // Step 0: Safe format parsing & bitness detection
+    let file = object::File::parse(raw_bytes)
+        .map_err(|_| "Failed to parse binary format. File may be corrupted or unsupported.")?;
+    let bitness = if file.is_64() { 64 } else { 32 };
+
+    // Step 1: Extract imports and count suspicious ones
     let suspicious_imports = match extract_imports(raw_bytes) {
         Ok(imports) => imports.iter().filter(|&import| is_untrusted_source(import)).count(),
         Err(_) => 0, // If import extraction fails, count as 0 suspicious imports
     };
 
-    // Step 1: Unpack
+    // Step 2: Unpack
     let (code_slice, virtual_base_address) = extract_text_section(raw_bytes)?;
 
-    // Step 2: Decode
+    // Step 3: Decode
     let mnemonics = lift_native_instructions(code_slice, bitness)?;
     let total_instructions_decoded = mnemonics.len();
 
-    // Step 3: Map
+    // Step 4: Map
     let cfg = ControlFlowGraph::build_from_mnemonics(&mnemonics);
     let basic_blocks_mapped = cfg.graph.node_count();
 
-    // TO CLINE: Map your decoded instructions into a HashMap<u32, Vec<Instruction>>
-    // Let `execution_blocks` be that map.
-    // Since the CFG stores mnemonics and we need full instructions, we need to re-decode
-    // the instructions to get the full instruction objects
+    // Map decoded instructions into a HashMap<u32, Vec<Instruction>>
     let mut execution_blocks: HashMap<u32, Vec<Instruction>> = HashMap::new();
 
     // Re-decode instructions to get full instruction objects
@@ -62,7 +66,6 @@ pub fn analyze_executable(raw_bytes: &[u8], bitness: u32) -> Result<AnalysisRepo
         decoder.decode_out(&mut instruction);
 
         // Find which block this instruction belongs to based on instruction pointer
-        // This is a simplified approach - in a real implementation, we'd need proper address mapping
         if current_block_id.is_none() {
             current_block_id = Some(0); // Start with first block
         }

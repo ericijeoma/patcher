@@ -85,7 +85,7 @@ impl CloudFuzzer {
             let malformed_pe = self.generate_malformed_pe_header(512);
 
             let result = std::panic::catch_unwind(|| {
-                analyze_executable(&malformed_pe, 32)
+                analyze_executable(&malformed_pe)
             });
 
             match result {
@@ -103,8 +103,8 @@ impl CloudFuzzer {
             self.seed = self.seed.wrapping_add(1);
             let corrupted_block = self.generate_corrupted_block(1024);
 
-            let result = std::panic::catch_unwind(|| {
-                analyze_executable(&corrupted_block, 64)
+           let result = std::panic::catch_unwind(|| {
+                analyze_executable(&corrupted_block)
             });
 
             match result {
@@ -123,7 +123,7 @@ impl CloudFuzzer {
             let cyclical_pattern = self.generate_cyclical_cfg_pattern(256);
 
             let result = std::panic::catch_unwind(|| {
-                analyze_executable(&cyclical_pattern, 64)
+                analyze_executable(&cyclical_pattern)
             });
 
             match result {

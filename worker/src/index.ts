@@ -1,18 +1,10 @@
 import { Hono } from 'hono';
 import { authMiddleware } from './middleware/auth';
 import { quotaMiddleware } from './middleware/quota';
-import { validateApiKey, generateApiKey, hashKey } from './lib/keys';
+import { generateApiKey, hashKey } from './lib/keys';
 import { createAuth } from './lib/auth';
 import Stripe from 'stripe';
 
-// ─── Bundler-target WASM imports (for server-side backward-compat) ───────────
-import {
-  analyze_binary_buffer,
-  run_cloud_fuzzing,
-} from '../../pkg/patcher.js';
-import wasmModule from '../../pkg/patcher_bg.wasm';
-import { __wbg_set_wasm } from '../../pkg/patcher_bg.js';
-import * as wasmImports from '../../pkg/patcher_bg.js';
 
 export interface Env {
   DEVSTRAL_API_KEY: string;
@@ -23,27 +15,11 @@ export interface Env {
   GITHUB_CLIENT_ID: string;     // Required for Better Auth
   GITHUB_CLIENT_SECRET: string; // Required for Better Auth
   APP_URL: string;              // Required for Stripe redirects and Auth
-  STRIPE_SECRET_KEY: string;
-  STRIPE_WEBHOOK_SECRET: string;
-  STRIPE_PRICE_DEVELOPER: string;
-  STRIPE_PRICE_TEAM: string;
-  STRIPE_PRICE_ENTERPRISE: string;
   ADMIN_USER_ID: string;
+  BETTER_AUTH_API_KEY: string;
+  PAYSTACK_PUBLIC_URL: string;
 }
 
-let wasmInitialized = false;
-
-async function ensureWasm(): Promise<void> {
-  if (!wasmInitialized) {
-    const instance = new WebAssembly.Instance(wasmModule, {
-      "./patcher_bg.js": wasmImports
-    });
-
-    // 2. Pass the active EXPORTS to the engine, NOT the raw blueprint
-    wasmImports.__wbg_set_wasm(instance.exports);
-    wasmInitialized = true;
-  }
-}
 
 async function triageWithDevstral(telemetryJsonString: string, apiKey: string): Promise<Response> {
   if (!apiKey) {
@@ -188,30 +164,6 @@ app.post('/v1/analyze/triage', authMiddleware, quotaMiddleware, async (c) => {
   }
 });
 
-// Public route - fuzzing (no auth required for now)
-app.post('/v1/test/fuzz', async (c) => {
-  try {
-    await ensureWasm();
-    const body = await c.req.json();
-    const seed = (body as any).seed ?? 42;
-    const iterations = (body as any).iterations ?? 1000;
-
-    const startTime = Date.now();
-    const fuzzingResult = run_cloud_fuzzing(seed, iterations);
-    const analysisTimeMs = Date.now() - startTime;
-
-    return c.json({
-      ...JSON.parse(fuzzingResult),
-      analysis_time_ms: analysisTimeMs,
-      cpu_consumption: 'within_limits',
-      status_code: 200,
-    });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    return c.json({ error: msg, status: 'FAILED' }, 500);
-  }
-});
-
 // API Key Management Routes
 app.post('/v1/keys', authMiddleware, async (c) => {
   const userId = c.get('userId') as string;
@@ -311,13 +263,13 @@ app.all('/api/auth/*', async (c) => {
 
 // Stripe Checkout
 app.post('/v1/stripe/create-checkout', authMiddleware, async (c) => {
-  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY);
+  const stripe = new Stripe(c.env.PAYSTACK_PUBLIC_URL);
   const { plan } = await c.req.json<{ plan: 'developer' | 'team' | 'enterprise' }>();
 
   const priceIds = {
-    developer: c.env.STRIPE_PRICE_DEVELOPER,
-    team: c.env.STRIPE_PRICE_TEAM,
-    enterprise: c.env.STRIPE_PRICE_ENTERPRISE,
+    developer: c.env.PAYSTACK_PUBLIC_URL,
+    team: c.env.PAYSTACK_PUBLIC_URL,
+    enterprise: c.env.PAYSTACK_PUBLIC_URL,
   };
 
   const session = await stripe.checkout.sessions.create({
@@ -335,7 +287,7 @@ app.post('/v1/stripe/create-checkout', authMiddleware, async (c) => {
 
 // Stripe Webhook
 app.post('/v1/stripe/webhook', async (c) => {
-  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY);
+  const stripe = new Stripe(c.env.PAYSTACK_PUBLIC_URL);
   const sig = c.req.header('stripe-signature');
   const body = await c.req.text();
 
@@ -346,7 +298,7 @@ app.post('/v1/stripe/webhook', async (c) => {
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, c.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(body, sig, c.env.PAYSTACK_PUBLIC_URL);
   } catch (err) {
     return c.json({ error: 'Invalid stripe signature' }, 400);
   }

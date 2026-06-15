@@ -12,8 +12,9 @@ wasm-bindgen = "0.2"
 console_error_panic_hook = { version = "0.1", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-goblin = { version = "0.8", default-features = false, features = ["pe32", "pe64", "elf32", "elf64", "endian_fd"] }
-object = { version = "0.39", default-features = false, features = ["read_core", "elf", "pe"] }
+# REPLACE THESE TWO LINES:
+goblin = { version = "0.8", default-features = false, features = ["pe32", "pe64", "elf32", "elf64", "mach32", "mach64", "endian_fd"] }
+object = { version = "0.39", default-features = false, features = ["read_core", "elf", "pe", "macho", "archive"] }
 iced-x86 = { version = "1.21", default-features = false, features = ["decoder", "std"] }
 petgraph = { version = "0.6", default-features = false, features = ["graphmap"] }
 

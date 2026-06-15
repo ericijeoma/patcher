@@ -10,6 +10,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@better-auth/infra": "^0.2.14",
     "better-auth": "^1.6.18",
     "hono": "^4.6.3",
     "stripe": "^22.2.1"
