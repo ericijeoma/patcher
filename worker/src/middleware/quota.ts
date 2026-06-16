@@ -13,7 +13,7 @@ export async function quotaMiddleware(c: Context<{ Bindings: Env; Variables: Var
   const db = c.env.DB as D1Database;
 
   const user = await db.prepare(
-    'SELECT plan FROM users WHERE id = ?'
+    'SELECT plan FROM user WHERE id = ?'
   ).bind(userId).first<{ plan: string }>();
 
   const plan = user?.plan ?? 'free';

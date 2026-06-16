@@ -3,6 +3,10 @@ import { homedir } from 'os';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 
+// Re-export telemetry types
+export * from './telemetry';
+export { HEX_ADDRESS_REGEX, SHA256_REGEX } from './telemetry';
+
 export interface ScanResult {
   scanId: string;
   filename: string;

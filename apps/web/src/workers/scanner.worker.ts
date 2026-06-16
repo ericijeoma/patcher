@@ -34,7 +34,13 @@ self.onmessage = async (e: MessageEvent) => {
       const telemetryJson = analyzeBuffer(uint8);
       const parsed = JSON.parse(telemetryJson);
       if (parsed.error) throw new Error(parsed.error);
-      self.postMessage({ type: 'RESULT', telemetry: telemetryJson });
+
+      // Import and apply telemetry sanitizer
+      const { TelemetrySanitizer } = await import('../utils/sanitizer');
+      const sanitizedPayload = TelemetrySanitizer.sanitize(parsed);
+      const sanitizedTelemetryJson = JSON.stringify(sanitizedPayload);
+
+      self.postMessage({ type: 'RESULT', telemetry: sanitizedTelemetryJson });
     } catch (err: any) {
       self.postMessage({ type: 'ERROR', message: err.message });
     }

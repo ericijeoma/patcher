@@ -33,6 +33,11 @@ enabled = true
 directory = "./public"
 binding = "ASSETS"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "hexis-db"
+database_id = "2efbd344-6b80-4933-86af-87dd49ed9bf5"
+
 # 3. Rule Block 1: Handle standard JavaScript modules
 [[rules]]
 type = "ESModule"

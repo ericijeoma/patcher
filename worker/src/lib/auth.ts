@@ -1,11 +1,11 @@
-import { betterAuth } from 'better-auth/minimal';
+import { betterAuth } from 'better-auth';
 import { dash } from '@better-auth/infra';
 import type { Env } from '../index'; // Imports the Env interface to fix the type error
 
 export function createAuth(env: Env) {
   return betterAuth({
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.APP_URL,
+    baseURL: "https://patcher.ericijeoma7767.workers.dev",
     database: env.DB,           // D1 binding — native support
     emailAndPassword: { enabled: true },
     socialProviders: {
@@ -16,6 +16,7 @@ export function createAuth(env: Env) {
     },
     session: {
       expiresIn: 60 * 60 * 24 * 30, // 30 days
+      storeSessionInDatabase: true,
     },
     // KV Cache natively implemented via secondaryStorage
     secondaryStorage: {

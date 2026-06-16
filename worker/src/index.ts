@@ -1,9 +1,10 @@
-import { Hono } from 'hono';
+import { Context,Next, Hono } from 'hono';
 import { authMiddleware } from './middleware/auth';
 import { quotaMiddleware } from './middleware/quota';
 import { generateApiKey, hashKey } from './lib/keys';
 import { createAuth } from './lib/auth';
 import Stripe from 'stripe';
+import { BinaryTelemetryPayload } from '../../shared/telemetry';
 
 
 export interface Env {
@@ -20,6 +21,43 @@ export interface Env {
   PAYSTACK_PUBLIC_URL: string;
 }
 
+// 🛡️ UNIFIED AUTH MIDDLEWARE: Supports both CLI API Keys and Web Sessions
+const unifiedAuthMiddleware = async (
+  c: Context<{ Bindings: Env; Variables: any }>, 
+  next: Next
+) => {
+  const authHeader = c.req.header('Authorization');
+  
+  // 1. Check for a CLI API Key first
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const rawKey = authHeader.replace('Bearer ', '').trim();
+    
+    // Hash the incoming key to match your database storage security
+    const keyHash = await hashKey(rawKey); 
+    
+    const record = await c.env.DB.prepare(
+      'SELECT user_id FROM api_keys WHERE key_hash = ?'
+    ).bind(keyHash).first<{ user_id: string }>();
+
+    if (record) {
+      // Valid API Key found! Set the user ID for the quota middleware and database logger
+      c.set('userId', record.user_id);
+      // Explicitly set the authMethod so downstream middlewares know how this request was authenticated
+      c.set('authMethod', 'api_key');
+      
+      // Update last_used_at (fire and forget)
+      c.executionCtx.waitUntil(
+        c.env.DB.prepare('UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE key_hash = ?')
+        .bind(keyHash).run()
+      );
+      
+      return next();
+    }
+  }
+
+  // 2. Fallback to Better Auth (for Web Dashboard users)
+  return authMiddleware(c, next);
+};
 
 async function triageWithDevstral(telemetryJsonString: string, apiKey: string): Promise<Response> {
   if (!apiKey) {
@@ -121,7 +159,7 @@ app.get('/v1/engine.js', async (c) => {
 });
 
 // Protected route - triage analysis (requires auth and quota)
-app.post('/v1/analyze/triage', authMiddleware, quotaMiddleware, async (c) => {
+app.post('/v1/analyze/triage', unifiedAuthMiddleware, quotaMiddleware, async (c) => {
   try {
     const contentType = c.req.header('Content-Type') ?? '';
     if (!contentType.includes('application/json')) {
@@ -132,6 +170,9 @@ app.post('/v1/analyze/triage', authMiddleware, quotaMiddleware, async (c) => {
     try { JSON.parse(telemetryJsonString); } catch {
       return c.json({ error: 'Invalid JSON.' }, 400);
     }
+
+    // Type-safe casting of telemetry payload
+    const telemetryPayload: BinaryTelemetryPayload = JSON.parse(telemetryJsonString);
 
     const resultResponse = await triageWithDevstral(telemetryJsonString, c.env.DEVSTRAL_API_KEY);
     const result = (await resultResponse.json()) as {
@@ -226,7 +267,7 @@ app.get('/v1/usage', authMiddleware, async (c) => {
 
   // Get user plan
   const user = await c.env.DB.prepare(`
-    SELECT plan FROM users WHERE id = ?
+    SELECT plan FROM user WHERE id = ?
   `).bind(userId).first<{ plan: string }>();
 
   const plan = user?.plan ?? 'free';
@@ -308,7 +349,7 @@ app.post('/v1/stripe/webhook', async (c) => {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
       await c.env.DB.prepare(`
-        UPDATE users SET
+        UPDATE user SET
           plan = ?,
           stripe_customer_id = ?,
           stripe_subscription_id = ?
@@ -326,7 +367,7 @@ app.post('/v1/stripe/webhook', async (c) => {
       const subscription = event.data.object as Stripe.Subscription;
       if (subscription.status === 'active') {
         await c.env.DB.prepare(`
-          UPDATE users SET plan = ?
+          UPDATE user SET plan = ?
           WHERE stripe_customer_id = ?
         `).bind(
           subscription.metadata?.plan,
@@ -341,7 +382,7 @@ app.post('/v1/stripe/webhook', async (c) => {
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription;
       await c.env.DB.prepare(`
-        UPDATE users SET plan = 'free'
+        UPDATE user SET plan = 'free'
         WHERE stripe_customer_id = ?
       `).bind(subscription.customer).run();
       break;
@@ -365,7 +406,7 @@ app.get('/v1/admin/stats', authMiddleware, async (c) => {
 
   // Get user breakdown by plan
   const { results: userPlans } = await c.env.DB.prepare(`
-    SELECT plan, COUNT(*) as count FROM users GROUP BY plan
+    SELECT plan, COUNT(*) as count FROM user GROUP BY plan
   `).all();
 
   // Get scans today

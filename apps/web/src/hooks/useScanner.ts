@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useSession } from '../lib/auth';
+import { TelemetrySanitizer } from '../utils/sanitizer';
 
 type ScanState =
   | 'idle'
