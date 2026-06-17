@@ -65,15 +65,14 @@ async function runEndToEndScan(targetFileName) {
     }
 
     const triageResult = await response.json();
+    const cacheHeader = response.headers.get('X-Cache') || 'UNKNOWN';
     
-    console.log(`\n══════════════════ DEVSTRAL TRIAGE REPORT ══════════════════`);
-    try {
-      const reportContent = JSON.parse(triageResult.choices[0].message.content);
-      console.dir(reportContent, { depth: null, colors: true });
-    } catch {
-      console.log(triageResult.choices[0].message.content);
-    }
-    console.log(`════════════════════════════════════════════════════════════\n`);
+    console.log(`\n══════════════════ DEVSTRAL TRIAGE REPORT [Cache: ${cacheHeader}] ══════════════════`);
+    
+    // The worker now returns the structured report directly, so we just log it!
+    console.dir(triageResult, { depth: null, colors: true });
+    
+    console.log(`═════════════════════════════════════════════════════════════════════════════════\n`);
 
   } catch (error) {
     console.error(`\n❌ PIPELINE FAILURE:`, error.message);

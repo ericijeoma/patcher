@@ -1,10 +1,12 @@
 import { Context,Next, Hono } from 'hono';
 import { authMiddleware } from './middleware/auth';
 import { quotaMiddleware } from './middleware/quota';
+import {rateLimitMiddleware} from './middleware/rate-limit';
 import { generateApiKey, hashKey } from './lib/keys';
 import { createAuth } from './lib/auth';
 import Stripe from 'stripe';
 import { BinaryTelemetryPayload } from '../../shared/telemetry';
+import { runTriage } from './lib/triage';
 
 
 export interface Env {
@@ -19,6 +21,7 @@ export interface Env {
   ADMIN_USER_ID: string;
   BETTER_AUTH_API_KEY: string;
   PAYSTACK_PUBLIC_URL: string;
+  RATE_LIMITER: any;
 }
 
 // 🛡️ UNIFIED AUTH MIDDLEWARE: Supports both CLI API Keys and Web Sessions
@@ -59,54 +62,6 @@ const unifiedAuthMiddleware = async (
   return authMiddleware(c, next);
 };
 
-async function triageWithDevstral(telemetryJsonString: string, apiKey: string): Promise<Response> {
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: 'DEVSTRAL_API_KEY is not configured on this Worker.' }),
-      { status: 500, headers: corsJsonHeaders() }
-    );
-  }
-
-  const devstralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'devstral-medium-latest',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an elite Security AI Orchestrator.
-Analyze the following WASM structural telemetry JSON from a target binary.
-Identify structural failure mechanisms and output strict, actionable remediation strategies.
-Do NOT output exploit payloads.
-Return the analysis strictly as a JSON object containing:
-'status', 'root_cause_mechanism', and 'mitigation_strategy'.`,
-        },
-        {
-          role: 'user',
-          content: telemetryJsonString,
-        },
-      ],
-      response_format: { type: 'json_object' },
-    }),
-  });
-
-  const triageResult = await devstralResponse.json();
-  return new Response(JSON.stringify(triageResult), { headers: corsJsonHeaders() });
-}
-
-function corsJsonHeaders(): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-}
-
 const PLAN_LIMITS: Record<string, number | null> = {
   free:       10,    // per day — user's explicit decision
   developer:  null,  // unlimited
@@ -123,7 +78,13 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // CORS preflight
 app.options('*', (c) => {
-  return new Response(null, { headers: corsJsonHeaders() });
+  return new Response(null, { 
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename',
+    } 
+  });
 });
 
 // Public route - download WASM engine (no auth required)
@@ -159,7 +120,7 @@ app.get('/v1/engine.js', async (c) => {
 });
 
 // Protected route - triage analysis (requires auth and quota)
-app.post('/v1/analyze/triage', unifiedAuthMiddleware, quotaMiddleware, async (c) => {
+app.post('/v1/analyze/triage', unifiedAuthMiddleware, rateLimitMiddleware, quotaMiddleware, async (c) => {
   try {
     const contentType = c.req.header('Content-Type') ?? '';
     if (!contentType.includes('application/json')) {
@@ -167,38 +128,43 @@ app.post('/v1/analyze/triage', unifiedAuthMiddleware, quotaMiddleware, async (c)
     }
 
     const telemetryJsonString = await c.req.text();
-    try { JSON.parse(telemetryJsonString); } catch {
+    let telemetryPayload: any;
+    
+    try { 
+      telemetryPayload = JSON.parse(telemetryJsonString); 
+    } catch {
       return c.json({ error: 'Invalid JSON.' }, 400);
     }
 
-    // Type-safe casting of telemetry payload
-    const telemetryPayload: BinaryTelemetryPayload = JSON.parse(telemetryJsonString);
-
-    const resultResponse = await triageWithDevstral(telemetryJsonString, c.env.DEVSTRAL_API_KEY);
-    const result = (await resultResponse.json()) as {
-                        id: string;
-                        choices: { message: { content: string } }[];
-                        usage?: { completion_tokens: number };
-                      };
-
-    // Add scan logging after successful triage
+    // Execute the Hybrid Orchestrator
+    const { report, tokens_used, cached } = await runTriage(telemetryPayload, c.env);
+    
     const userId = c.get('userId') as string;
-    const inner = JSON.parse(result.choices[0].message.content);
+    const filename = c.req.header('X-Filename') ?? 'unknown';
 
-    // Log scan to scans table (fire and forget)
+    // Log the scan to the database
+    // Note: We are saving the 'risk_level' into your DB 'status' column so you have meaningful data
     c.executionCtx.waitUntil(
       c.env.DB.prepare(
         'INSERT INTO scans (id, user_id, filename, status, tokens_used) VALUES (?, ?, ?, ?, ?)'
       ).bind(
-        result.id,
+        crypto.randomUUID(),
         userId,
-        c.req.header('X-Filename') ?? 'unknown',
-        inner.status,
-        result.usage?.completion_tokens ?? 0
+        filename,
+        report.risk_level, 
+        tokens_used
       ).run()
     );
 
-    return c.json(result);
+    // Return the report and cache headers to the client
+    return new Response(JSON.stringify({ cached, ...report }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Cache': cached ? 'HIT' : 'MISS',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     return c.json({ error: msg }, 500);
