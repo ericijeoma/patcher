@@ -1,4 +1,4 @@
-// middleware/rateLimitMiddleware.ts
+// middleware/rate-limit.ts
 export const rateLimitMiddleware = async (c: any, next: any) => {
   // Get the userId that was extracted by your unifiedAuthMiddleware
   const userId = c.get('userId');
