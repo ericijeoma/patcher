@@ -1,4 +1,8 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
+// 1. Import HelmetProvider
+import { HelmetProvider } from 'react-helmet-async'; 
 import { useSession } from './lib/auth';
 import HomePage from './pages/HomePage';
 import ScanPage from './pages/ScanPage';
@@ -19,43 +23,60 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const { data: session } = useSession();
+
+  // Bind the Better-Auth session to Sentry
+  useEffect(() => {
+    if (session?.user) {
+      Sentry.setUser({ 
+        id: session.user.id,
+        email: session.user.email 
+      });
+    } else {
+      Sentry.setUser(null);
+    }
+  }, [session]);
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/scan" element={
-          <ProtectedRoute>
-            <ScanPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/sign-in" element={<div>Sign In Page</div>} />
-        <Route path="/sign-up" element={<div>Sign Up Page</div>} />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <div>Dashboard Page</div>
-          </ProtectedRoute>
-        } />
-        <Route path="/dashboard/keys" element={
-          <ProtectedRoute>
-            <div>API Keys Page</div>
-          </ProtectedRoute>
-        } />
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <div>Settings Page</div>
-          </ProtectedRoute>
-        } />
-        <Route path="/docs" element={<div>Docs Page</div>} />
-        <Route path="/pricing" element={<div>Pricing Page</div>} />
-        <Route path="/privacy" element={<div>Privacy Page</div>} />
-        <Route path="/terms" element={<div>Terms Page</div>} />
-        <Route path="/admin" element={
-          <ProtectedRoute>
-            <AdminPage />
-          </ProtectedRoute>
-        } />
-      </Routes>
-    </Router>
+    // 2. Wrap the entire Router in the HelmetProvider
+    <HelmetProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/scan" element={
+            <ProtectedRoute>
+              <ScanPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/sign-in" element={<div>Sign In Page</div>} />
+          <Route path="/sign-up" element={<div>Sign Up Page</div>} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <div>Dashboard Page</div>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/keys" element={
+            <ProtectedRoute>
+              <div>API Keys Page</div>
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <div>Settings Page</div>
+            </ProtectedRoute>
+          } />
+          <Route path="/docs" element={<div>Docs Page</div>} />
+          <Route path="/pricing" element={<div>Pricing Page</div>} />
+          <Route path="/privacy" element={<div>Privacy Page</div>} />
+          <Route path="/terms" element={<div>Terms Page</div>} />
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminPage />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </Router>
+    </HelmetProvider>
   );
 }
 

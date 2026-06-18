@@ -1,6 +1,7 @@
 import { withSentry } from '@sentry/cloudflare';
 import * as Sentry from '@sentry/cloudflare';
 import { Context,Next, Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { authMiddleware } from './middleware/auth';
 import { quotaMiddleware } from './middleware/quota';
 import {rateLimitMiddleware} from './middleware/rate-limit';
@@ -78,16 +79,17 @@ export type Variables = {
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// CORS preflight
-app.options('*', (c) => {
-  return new Response(null, { 
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename',
-    } 
-  });
-});
+// 🚀 PASTE THIS RIGHT HERE (Replaces your old app.options block)
+app.use('*', cors({
+  origin: [
+    'http://localhost:3000',
+    'https://hexis.com',
+    'https://www.hexis.com'
+  ],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Filename'],
+  allowMethods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE'],
+  credentials: true, // CRITICAL: Allows Better-Auth sessions
+}));
 
 // Public route - download WASM engine (no auth required)
 app.get('/v1/engine', async (c) => {
