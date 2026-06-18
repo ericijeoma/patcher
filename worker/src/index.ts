@@ -455,12 +455,6 @@ app.post('/v1/diagnostics/engine-error', async (c) => {
   return c.json({ received: true });
 });
 
-// TEMP: Sentry Backend Test Route
-app.get('/v1/debug-sentry', (c) => {
-  
-  throw new Error("Hexis Backend Test: Worker Native Crash");
-});
-
 // Fallback route
 app.all('*', (c) => {
   return c.json({ service: 'hexis', status: 'active' });
@@ -468,13 +462,20 @@ app.all('*', (c) => {
 
 // 🛡️ Global Hono Error Handler
 app.onError((err, c) => {
-  // 1. Hand the error directly to Sentry
-  Sentry.captureException(err);
+  // Extract the user ID if the middleware successfully authenticated them
+  const userId = c.get('userId');
+
+  Sentry.withScope((scope) => {
+    if (userId) {
+      // Tell Sentry exactly who experienced this error
+      scope.setUser({ id: userId });
+    }
+    
+    // Hand the error directly to Sentry
+    Sentry.captureException(err);
+  });
   
-  // 2. Log it to the terminal for local debugging
   console.error(`\n❌ Hono caught an error: ${err.message}`);
-  
-  // 3. Return a standard 500 response to the client
   return c.json({ error: 'Internal Server Error' }, 500);
 });
 
