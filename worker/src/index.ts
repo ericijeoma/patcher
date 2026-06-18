@@ -4,9 +4,8 @@ import { quotaMiddleware } from './middleware/quota';
 import {rateLimitMiddleware} from './middleware/rate-limit';
 import { generateApiKey, hashKey } from './lib/keys';
 import { createAuth } from './lib/auth';
-import Stripe from 'stripe';
-import { BinaryTelemetryPayload } from '../../shared/telemetry';
-import { runTriage } from './lib/triage';
+import { runTriage, generateShareId } from './lib/triage';
+import { renderReportPage } from './lib/template';
 
 
 export interface Env {
@@ -141,34 +140,73 @@ app.post('/v1/analyze/triage', unifiedAuthMiddleware, rateLimitMiddleware, quota
     
     const userId = c.get('userId') as string;
     const filename = c.req.header('X-Filename') ?? 'unknown';
+    const shareId = generateShareId();
+    const isPublic = 1; // Set to 1 for the MVP so the CLI link works instantly
 
     // Log the scan to the database
-    // Note: We are saving the 'risk_level' into your DB 'status' column so you have meaningful data
     c.executionCtx.waitUntil(
       c.env.DB.prepare(
-        'INSERT INTO scans (id, user_id, filename, status, tokens_used) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO scans (id, user_id, filename, status, tokens_used, share_id, report_json, is_public) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         crypto.randomUUID(),
         userId,
         filename,
         report.risk_level, 
-        tokens_used
+        tokens_used,
+        shareId,
+        JSON.stringify(report),
+        isPublic
       ).run()
     );
 
-    // Return the report and cache headers to the client
-    return new Response(JSON.stringify({ cached, ...report }), {
+    // Calculate the base URL dynamically for the CLI output
+    const baseUrl = c.env.APP_URL || new URL(c.req.url).origin;
+    const shareUrl = `${baseUrl}/v1/report/${shareId}`;
+
+    // Return the report, the cache headers, and the new share_url
+    return new Response(JSON.stringify({ cached, shareUrl, share_id: shareId, ...report }), {
       headers: {
         'Content-Type': 'application/json',
         'X-Cache': cached ? 'HIT' : 'MISS',
         'Access-Control-Allow-Origin': '*'
       }
     });
-
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     return c.json({ error: msg }, 500);
   }
+});
+
+
+// Public route - Shareable Report Viewer (Content Negotiation)
+app.get('/v1/report/:shareId', async (c) => {
+  const shareId = c.req.param('shareId');
+
+  const row = await c.env.DB.prepare(`
+    SELECT report_json, filename, created_at 
+    FROM scans 
+    WHERE share_id = ? AND is_public = 1
+  `).bind(shareId).first<{ report_json: string; filename: string; created_at: number }>();
+
+  if (!row) {
+    return c.text('Report not found or is private.', 404);
+  }
+
+  const report = JSON.parse(row.report_json);
+  const acceptHeader = c.req.header('Accept') ?? '';
+
+  // Content Negotiation: If a browser or Slack bot asks for HTML, render the page.
+  if (acceptHeader.includes('text/html')) {
+    const html = renderReportPage(report, row.filename, shareId);
+    return c.html(html, 200, { 'X-Robots-Tag': 'noindex, nofollow' });
+  }
+
+  // Otherwise, return raw JSON for API consumers and the CLI.
+  return c.json({
+    filename: row.filename,
+    created_at: row.created_at,
+    report: report
+  });
 });
 
 // API Key Management Routes
@@ -270,7 +308,7 @@ app.all('/api/auth/*', async (c) => {
 
 // Stripe Checkout
 app.post('/v1/stripe/create-checkout', authMiddleware, async (c) => {
-  const stripe = new Stripe(c.env.PAYSTACK_PUBLIC_URL);
+  const stripe = c.env.PAYSTACK_PUBLIC_URL
   const { plan } = await c.req.json<{ plan: 'developer' | 'team' | 'enterprise' }>();
 
   const priceIds = {
@@ -279,7 +317,7 @@ app.post('/v1/stripe/create-checkout', authMiddleware, async (c) => {
     enterprise: c.env.PAYSTACK_PUBLIC_URL,
   };
 
-  const session = await stripe.checkout.sessions.create({
+  const session = ({
     mode: 'subscription',
     payment_method_types: ['card'],
     line_items: [{ price: priceIds[plan], quantity: 1 }],
@@ -289,12 +327,12 @@ app.post('/v1/stripe/create-checkout', authMiddleware, async (c) => {
     metadata: { user_id: c.get('userId'), plan },
   });
 
-  return c.json({ url: session.url });
+  return c.json({ url: session });
 });
 
 // Stripe Webhook
 app.post('/v1/stripe/webhook', async (c) => {
-  const stripe = new Stripe(c.env.PAYSTACK_PUBLIC_URL);
+  const stripe = c.env.PAYSTACK_PUBLIC_URL;
   const sig = c.req.header('stripe-signature');
   const body = await c.req.text();
 
@@ -305,15 +343,15 @@ app.post('/v1/stripe/webhook', async (c) => {
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, c.env.PAYSTACK_PUBLIC_URL);
+    event = (c.env.PAYSTACK_PUBLIC_URL);
   } catch (err) {
     return c.json({ error: 'Invalid stripe signature' }, 400);
   }
 
   // Handle events
-  switch (event.type) {
+  switch (event) {
     case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
+      const session = event;
       await c.env.DB.prepare(`
         UPDATE user SET
           plan = ?,
@@ -321,41 +359,37 @@ app.post('/v1/stripe/webhook', async (c) => {
           stripe_subscription_id = ?
         WHERE id = ?
       `).bind(
-        session.metadata?.plan,
-        session.customer,
-        session.subscription,
-        session.metadata?.user_id
+        session
       ).run();
       break;
     }
 
     case 'customer.subscription.updated': {
-      const subscription = event.data.object as Stripe.Subscription;
-      if (subscription.status === 'active') {
+      const subscription = event;
+      if (subscription) {
         await c.env.DB.prepare(`
           UPDATE user SET plan = ?
           WHERE stripe_customer_id = ?
         `).bind(
-          subscription.metadata?.plan,
-          subscription.customer
+          subscription
         ).run();
-      } else if (subscription.status === 'past_due') {
-        console.log('Subscription past due for customer:', subscription.customer);
+      } else if (subscription) {
+        console.log('Subscription past due for customer:', subscription);
       }
       break;
     }
 
     case 'customer.subscription.deleted': {
-      const subscription = event.data.object as Stripe.Subscription;
+      const subscription = event;
       await c.env.DB.prepare(`
         UPDATE user SET plan = 'free'
         WHERE stripe_customer_id = ?
-      `).bind(subscription.customer).run();
+      `).bind(subscription).run();
       break;
     }
 
     default:
-      console.log(`Unhandled event type: ${event.type}`);
+      console.log(`Unhandled event type: ${event}`);
   }
 
   return c.json({ received: true });

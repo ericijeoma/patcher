@@ -2,7 +2,6 @@ import type { Env } from '../index';
 
 const PROMPT_VERSION = 'v1';
 
-// 1. The Strict JSON Schema (Forces Mistral to output exactly this shape)
 export const TRIAGE_REPORT_SCHEMA = {
   name: 'hexis_triage_report',
   strict: true,
@@ -54,14 +53,29 @@ Stay strictly defensive:
 - "remediation_patches" describes the defensive fix to apply, never the offensive technique that triggers the flaw.
 - Use "explanation" for reasoning, written in plain English for a developer who is not a security specialist.`;
 
+/**
+ * High-entropy, edge-native identifier generator using Web Crypto.
+ * Yields unguessable Base62 slugs (approx 7.4e19 variations for length 11).
+ */
+export function generateShareId(): string {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  const size = 11;
+  const bytes = new Uint8Array(size);
+  crypto.getRandomValues(bytes);
+  let id = '';
+  for (let i = 0; i < size; i++) {
+    id += alphabet[bytes[i] % 62];
+  }
+  return `rpt_${id}`;
+}
+
 export async function runTriage(
   telemetryPayload: unknown,
   env: Env
 ): Promise<{ report: TriageReport; tokens_used: number; cached: boolean }> {
-  // 1. Generate canonical hash cache key
   const cacheKey = await buildCacheKey(telemetryPayload);
 
-  // 2. Check Edge Cache
+  // Check Edge Cache
   const cached = await env.AUTH_KV.get(cacheKey);
   if (cached) {
     const parsed = JSON.parse(cached) as TriageReport;
@@ -72,7 +86,7 @@ export async function runTriage(
     throw new Error('DEVSTRAL_API_KEY is not configured.');
   }
 
-  // 3. Call LLM with Strict Formatting & Zero Temperature
+  // Call LLM with Strict Formatting & Zero Temperature
   const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -99,13 +113,13 @@ export async function runTriage(
   const report: TriageReport = JSON.parse(raw.choices[0].message.content);
   const tokens_used = raw.usage?.completion_tokens ?? 0;
 
-  // 4. Save to Cache (30 days)
+  // Save to Cache (30 days)
   await env.AUTH_KV.put(cacheKey, JSON.stringify(report), { expirationTtl: 2592000 });
 
   return { report, tokens_used, cached: false };
 }
 
-// --- Cryptographic & Canonicalization Helpers ---
+// --- Cryptographic Helpers ---
 
 async function buildCacheKey(payload: unknown): Promise<string> {
   const canonical = canonicalize(payload);

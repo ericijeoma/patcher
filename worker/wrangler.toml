@@ -11,7 +11,7 @@ minify = true
 # 2. Don't forget your auth base URL!
 
 
-APP_URL = "http://localhost:3000"
+APP_URL = "https://patcher.ericijeoma7767.workers.dev"
 PAYSTACK_PUBLIC_KEY = "pk_test_YOUR_PAYSTACK_PUBLIC_KEY"
 
 [[ratelimits]]
@@ -49,3 +49,9 @@ fallthrough = true
 type = "CompiledWasm"
 globs = ["**/*.wasm"]
 fallthrough = true
+
+
+[[rules]]
+type = "Text"
+globs = ["**/*.css"]
+fallback = true

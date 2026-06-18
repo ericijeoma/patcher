@@ -12,16 +12,19 @@
   "dependencies": {
     "@better-auth/expo": "^1.6.18",
     "@better-auth/infra": "^0.2.14",
+    "@sentry/cloudflare": "^10.58.0",
     "better-auth": "^1.6.18",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.6.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260610.1",
+    "@tailwindcss/cli": "^4.3.1",
     "@types/node": "^25.9.2",
     "@typescript-eslint/eslint-plugin": "^8.61.0",
     "@typescript-eslint/parser": "^8.61.0",
     "eslint": "^10.4.1",
+    "tailwindcss": "^4.3.1",
     "typescript": "^5.0.0",
     "wrangler": "^4.99.0"
   }

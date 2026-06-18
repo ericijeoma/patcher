@@ -73,6 +73,10 @@ async function runEndToEndScan(targetFileName) {
     console.dir(triageResult, { depth: null, colors: true });
     
     console.log(`═════════════════════════════════════════════════════════════════════════════════\n`);
+    // 🚀 NEW: Highlight the Phase 5 Shareable Link so it is clickable in the terminal
+    if (triageResult.share_url) {
+      console.log(`\n🔗 View Interactive Web Report: \x1b[36m${triageResult.share_url}\x1b[0m\n`);
+    }
 
   } catch (error) {
     console.error(`\n❌ PIPELINE FAILURE:`, error.message);

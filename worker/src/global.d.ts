@@ -14,3 +14,8 @@ declare module "*patcher_bg.js" {
 declare module "../../pkg/patcher_bg.js" {
   export function __wbg_set_wasm(wasm: any): void;
 }
+
+declare module "*.css" {
+  const content: string;
+  export default content;
+}
