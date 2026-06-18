@@ -6,3 +6,4 @@ worker/public/engine.js
 worker/.dev.vars
 pkg-web/
 .env
+apps/web/.env

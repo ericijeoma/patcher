@@ -1,3 +1,5 @@
+import { withSentry } from '@sentry/cloudflare';
+import * as Sentry from '@sentry/cloudflare';
 import { Context,Next, Hono } from 'hono';
 import { authMiddleware } from './middleware/auth';
 import { quotaMiddleware } from './middleware/quota';
@@ -21,6 +23,7 @@ export interface Env {
   BETTER_AUTH_API_KEY: string;
   PAYSTACK_PUBLIC_URL: string;
   RATE_LIMITER: any;
+  HEXIS_WORKER_DSN: string; // <-- Add this line
 }
 
 // 🛡️ UNIFIED AUTH MIDDLEWARE: Supports both CLI API Keys and Web Sessions
@@ -431,9 +434,65 @@ app.get('/v1/admin/stats', authMiddleware, async (c) => {
   });
 });
 
+app.post('/v1/diagnostics/engine-error', async (c) => {
+  const traceId = c.req.header('X-Hexis-Trace-Id') ?? 'unknown';
+  const body = await c.req.json<{ 
+    stage: string; 
+    panic_message: string; 
+    engine_version: string; 
+    os: string 
+  }>();
+
+  Sentry.withScope((scope) => {
+    scope.setTag('hexis_trace_id', traceId);
+    scope.setTag('tier', 'engine');
+    scope.setContext('engine_diagnostic', body);
+    
+    // Explicitly throw this alert into the Hexis-Worker Sentry dashboard
+    Sentry.captureException(new Error(`WASM panic: ${body.panic_message}`));
+  });
+
+  return c.json({ received: true });
+});
+
+// TEMP: Sentry Backend Test Route
+app.get('/v1/debug-sentry', (c) => {
+  
+  throw new Error("Hexis Backend Test: Worker Native Crash");
+});
+
 // Fallback route
 app.all('*', (c) => {
   return c.json({ service: 'hexis', status: 'active' });
 });
 
-export default app;
+// 🛡️ Global Hono Error Handler
+app.onError((err, c) => {
+  // 1. Hand the error directly to Sentry
+  Sentry.captureException(err);
+  
+  // 2. Log it to the terminal for local debugging
+  console.error(`\n❌ Hono caught an error: ${err.message}`);
+  
+  // 3. Return a standard 500 response to the client
+  return c.json({ error: 'Internal Server Error' }, 500);
+});
+
+export default withSentry(
+  (env: Env) => ({
+    dsn: env.HEXIS_WORKER_DSN,
+    tracesSampleRate: 1.0,
+  }),
+  {
+    async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+      // Intercept the request to tag the trace ID if it exists
+      const traceId = request.headers.get('X-Hexis-Trace-Id');
+      if (traceId) {
+        Sentry.setTag('hexis_trace_id', traceId);
+      }
+
+      // Pass the execution to Hono
+      return app.fetch(request, env, ctx);
+    }
+  } satisfies ExportedHandler<Env>
+);

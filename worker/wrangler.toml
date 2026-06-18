@@ -54,4 +54,4 @@ fallthrough = true
 [[rules]]
 type = "Text"
 globs = ["**/*.css"]
-fallback = true
+fallthrough = true

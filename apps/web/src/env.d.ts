@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_WORKER_URL: string;
-  readonly VITE_STRIPE_PUBLIC_KEY: string;
-  readonly VITE_SENTRY_DSN: string;
+  readonly HEXIS_WORKER_URL: string;
+  readonly PAYSTACK_PUBLIC_KEY: string;
+  readonly HEXIS_WEB_DSN: string;
   // Add other VITE_* variables here
 }
 
