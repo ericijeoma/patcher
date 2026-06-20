@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import 'dotenv/config';
-
 import { analyze_binary_buffer } from './pkg/patcher.js'; 
 import { TelemetrySanitizer } from './apps/web/src/utils/sanitizer.ts'; 
 
