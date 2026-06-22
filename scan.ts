@@ -1,11 +1,10 @@
 // @ts-nocheck
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
+import {randomUUID, createHash} from 'node:crypto';
 import 'dotenv/config';
 import { analyze_binary_buffer } from './pkg/patcher.js'; 
 import { TelemetrySanitizer } from './apps/web/src/utils/sanitizer.ts'; 
-
 // 1. Separate the Base URL from the specific routes
 const BASE_URL = "https://patcher.ericijeoma7767.workers.dev";
 const TRIAGE_ROUTE = `${BASE_URL}/v1/analyze/triage`;
@@ -34,7 +33,7 @@ async function runEndToEndScan(targetFileName) {
   console.log(`\n=== Starting Hexis Production End-to-End Scan ===`);
 
   // 2. Generate the trace ID at the start of the scan lifecycle
-  const traceId = crypto.randomUUID(); 
+  const traceId = randomUUID(); 
 
   const apiKey = process.env.HEXIS_API_KEY;
   if (!apiKey) {
@@ -55,7 +54,7 @@ async function runEndToEndScan(targetFileName) {
   const sizeMB = (fileBytes.length / 1024 / 1024).toFixed(2);
   console.log(`      File size: ${sizeMB} MB (binary data remains local ✓)`);
 
-  const fileHash = crypto.createHash('sha256').update(fileBytes).digest('hex');
+  const fileHash = createHash('sha256').update(fileBytes).digest('hex');
 
   try {
     console.log(`[2/4] Executing local WASM static extraction...`);

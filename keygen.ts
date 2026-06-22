@@ -1,8 +1,9 @@
 // @ts-nocheck
-import * as crypto from 'crypto';
+import { randomBytes, createHash } from 'node:crypto';
+// import * as crypto from 'node:crypto';
 
-const rawKey = 'hxs_' + crypto.randomBytes(32).toString('hex');
-const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+const rawKey = 'hxs_' + randomBytes(32).toString('hex');
+const keyHash = createHash('sha256').update(rawKey).digest('hex');
 
 console.log('--- ADD THIS TO YOUR DATABASE ---');
 console.log('Raw Key (Keep this secret!):', rawKey);

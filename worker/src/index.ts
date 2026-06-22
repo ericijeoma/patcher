@@ -1,5 +1,4 @@
-import { withSentry } from "@sentry/cloudflare";
-import * as Sentry from "@sentry/cloudflare";
+import { withSentry, withScope, captureException, setTag } from "@sentry/cloudflare";
 import { Context, Next, Hono } from "hono";
 import { cors } from "hono/cors";
 import { authMiddleware } from "./middleware/auth";
@@ -502,13 +501,13 @@ app.post("/v1/diagnostics/engine-error", async (c) => {
     os: string;
   }>();
 
-  Sentry.withScope((scope) => {
+  withScope((scope) => {
     scope.setTag("hexis_trace_id", traceId);
     scope.setTag("tier", "engine");
     scope.setContext("engine_diagnostic", body);
 
     // Explicitly throw this alert into the Hexis-Worker Sentry dashboard
-    Sentry.captureException(new Error(`WASM panic: ${body.panic_message}`));
+    captureException(new Error(`WASM panic: ${body.panic_message}`));
   });
 
   return c.json({ received: true });
@@ -524,14 +523,14 @@ app.onError((err, c) => {
   // Extract the user ID if the middleware successfully authenticated them
   const userId = c.get("userId");
 
-  Sentry.withScope((scope) => {
+  withScope((scope) => {
     if (userId) {
       // Tell Sentry exactly who experienced this error
       scope.setUser({ id: userId });
     }
 
     // Hand the error directly to Sentry
-    Sentry.captureException(err);
+    captureException(err);
   });
 
   console.error(`\n❌ Hono caught an error: ${err.message}`);
@@ -548,7 +547,7 @@ export default withSentry(
       // Intercept the request to tag the trace ID if it exists
       const traceId = request.headers.get("X-Hexis-Trace-Id");
       if (traceId) {
-        Sentry.setTag("hexis_trace_id", traceId);
+        setTag("hexis_trace_id", traceId);
       }
 
       // Pass the execution to Hono

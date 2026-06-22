@@ -1,6 +1,6 @@
 import { TriageReport } from './triage';
 // 1. Import the raw CSS text compilation (adjust the relative path to your output.css if necessary)
-import tailwindStyles from '../../output.css'; 
+import tailwindStyles from '../output.css'; 
 
 export function renderReportPage(report: TriageReport, filename: string, shareId: string): string {
   const badgeColors: Record<string, string> = {

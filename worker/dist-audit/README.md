@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "patcher" generated at 2026-06-22T08:22:49.714Z.
