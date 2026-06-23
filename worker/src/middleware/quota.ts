@@ -2,7 +2,7 @@ import { Context, Next } from 'hono';
 import { Env, Variables } from '../index';
 
 const PLAN_LIMITS: Record<string, number | null> = {
-  free:       10,    // per day — user's explicit decision
+  free:       null,    // per day — user's explicit decision
   developer:  null,  // unlimited
   team:       null,  // unlimited
   enterprise: null,  // unlimited

@@ -72,7 +72,7 @@ export function renderReportPage(report: TriageReport, filename: string, shareId
 
         <div class="mt-12 pt-6 border-t border-gray-200 text-center">
            <p class="text-sm text-gray-500 mb-4">Want to scan your own binaries securely?</p>
-           <a href="https://hexis.com" class="inline-block bg-black text-white px-6 py-2 rounded-md font-medium hover:bg-gray-800 transition-colors">
+           <a href="https://hexis.com" target="_blank" class="inline-block bg-black text-white px-6 py-2 rounded-md font-medium hover:bg-gray-800 transition-colors">
              Get Hexis
            </a>
         </div>

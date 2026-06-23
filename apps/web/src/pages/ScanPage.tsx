@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useScanner } from '../hooks/useScanner';
 import { useSession } from '../lib/auth';
+import { Link } from '@tanstack/react-router'
 import { Upload, Check, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+
 
 export default function ScanPage() {
   const { state, scan, result, error, progress, reset } = useScanner();
@@ -79,9 +81,9 @@ export default function ScanPage() {
               <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
               <span className="font-medium">Daily scan limit reached</span>
             </div>
-            <a href="/pricing" className="text-blue-600 font-medium hover:underline">
+            <Link to={"/pricing" as any} className="text-blue-600 font-medium hover:underline">
               Upgrade plan →
-            </a>
+            </Link>
           </div>
         </div>
       );

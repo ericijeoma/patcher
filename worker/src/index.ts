@@ -91,7 +91,7 @@ app.use(
       "https://hexis.com",
       "https://www.hexis.com",
     ],
-    allowHeaders: ["Content-Type", "Authorization", "X-Filename"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Filename", "X-Hexis-Trace-Id"],
     allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
     credentials: true, // CRITICAL: Allows Better-Auth sessions
   }),

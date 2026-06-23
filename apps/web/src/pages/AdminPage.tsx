@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSession } from '../lib/auth';
+import { Link } from "@tanstack/react-router";
 import { BarChart, Users, Scan, Check, AlertTriangle, X } from 'lucide-react';
 
 export default function AdminPage() {
@@ -129,14 +130,14 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <a
-            href="https://dashboard.stripe.com"
+          <Link
+            to={"https://dashboard.paystack.com" as any}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
           >
-            View Stripe Dashboard
-          </a>
+            View Paystack Dashboard
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

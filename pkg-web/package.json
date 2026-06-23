@@ -1,0 +1,15 @@
+{
+  "name": "native_core",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "patcher_bg.wasm",
+    "patcher.js",
+    "patcher.d.ts"
+  ],
+  "main": "patcher.js",
+  "types": "patcher.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

@@ -4,7 +4,6 @@ client/.wasm-cache/
 worker/public/engine.wasm
 worker/public/engine.js
 worker/.dev.vars
-pkg-web/
 .env
 apps/web/.env
 apps/web/node_modules
