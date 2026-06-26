@@ -1,0 +1,1 @@
+import{j as e}from"./index-Bp5jKaca.js";function a(){return e.jsxs("div",{className:"p-8",children:[e.jsx("h1",{className:"text-2xl font-bold text-gray-900 dark:text-white",children:"Admin Dashboard"}),e.jsx("p",{className:"text-gray-600 dark:text-gray-400 mt-2",children:"Welcome to the secure administrative interface."})]})}export{a as component};

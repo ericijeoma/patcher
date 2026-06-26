@@ -12,6 +12,8 @@ use iced_x86::Instruction;
 #[derive(Debug, Clone)]
 pub struct AnalysisReport {
     pub virtual_base_address: u64,
+    pub architecture: String,
+    pub format: String,
     pub total_instructions_decoded: usize,
     pub basic_blocks_mapped: usize,
     pub suspicious_imports: usize,
@@ -27,6 +29,24 @@ pub fn analyze_executable(raw_bytes: &[u8]) -> Result<AnalysisReport, String> {
     let file = object::File::parse(raw_bytes)
         .map_err(|_| "Failed to parse binary format. File may be corrupted or unsupported.")?;
     let bitness = if file.is_64() { 64 } else { 32 };
+
+    // Surface the real detected architecture/format instead of assuming x64/PE downstream.
+    let architecture = match file.architecture() {
+        object::Architecture::X86_64 => "x64",
+        object::Architecture::I386 => "x86",
+        object::Architecture::Aarch64 => "arm64",
+        object::Architecture::Arm => "arm32",
+        _ => "unknown",
+    }.to_string();
+
+    let format = match file.format() {
+        object::BinaryFormat::Pe => "PE",
+        object::BinaryFormat::Elf => "ELF",
+        object::BinaryFormat::MachO => "MachO",
+        object::BinaryFormat::Coff => "COFF",
+        object::BinaryFormat::Wasm => "WASM",
+        _ => "unknown",
+    }.to_string();
 
     // Step 1: Extract imports and count suspicious ones
     let suspicious_imports = match extract_imports(raw_bytes) {
@@ -119,6 +139,8 @@ pub fn analyze_executable(raw_bytes: &[u8]) -> Result<AnalysisReport, String> {
 
     Ok(AnalysisReport {
         virtual_base_address,
+        architecture,
+        format,
         total_instructions_decoded,
         basic_blocks_mapped,
         suspicious_imports,

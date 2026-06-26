@@ -1,10 +1,11 @@
+#!/usr/bin/env tsx
 // @ts-nocheck
 import * as fs from 'fs';
 import * as path from 'path';
 import {randomUUID, createHash} from 'node:crypto';
 import 'dotenv/config';
-import { analyze_binary_buffer } from './pkg/patcher.js'; 
-import { TelemetrySanitizer } from './apps/web/src/utils/sanitizer.ts'; 
+import { analyze_binary_buffer, set_license_key, validate_license } from './pkg/patcher.js';
+import { TelemetrySanitizer } from './apps/web/src/utils/sanitizer.ts';
 // 1. Separate the Base URL from the specific routes
 const BASE_URL = "https://patcher.ericijeoma7767.workers.dev";
 const TRIAGE_ROUTE = `${BASE_URL}/v1/analyze/triage`;
@@ -35,11 +36,29 @@ async function runEndToEndScan(targetFileName) {
   // 2. Generate the trace ID at the start of the scan lifecycle
   const traceId = randomUUID(); 
 
+  // Check for API key (cloud authentication) or license key (local engine)
   const apiKey = process.env.HEXIS_API_KEY;
+  const licenseKey = process.env.HEXIS_LICENSE_KEY || process.env.HEXIS_API_KEY;
+
   if (!apiKey) {
     console.error(`\n❌ AUTHENTICATION REQUIRED`);
     console.error(`Provide your API Key via the environment:`);
     console.error(`PowerShell: $env:HEXIS_API_KEY="hxs_..." ; pnpm dlx tsx scan.ts ${targetFileName}\n`);
+    process.exit(1);
+  }
+
+  // Set the license key for WASM engine validation
+  if (licenseKey) {
+    try {
+      set_license_key(licenseKey);
+      console.log(`      ✅ License key set for local engine`);
+    } catch (e) {
+      console.error(`\n❌ LICENSE VALIDATION FAILED: ${e}`);
+      process.exit(1);
+    }
+  } else {
+    console.error(`\n❌ LICENSE KEY REQUIRED`);
+    console.error(`Provide your License Key via HEXIS_LICENSE_KEY environment variable`);
     process.exit(1);
   }
 

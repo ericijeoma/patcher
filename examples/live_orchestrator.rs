@@ -1,6 +1,6 @@
 use std::fs;
 use std::process::Command;
-use patcher::analyzer::analyze_executable;
+use hexis_native::analyzer::analyze_executable;
 
 fn main() {
     println!("=== Starting Live End-to-End Pipeline Verification ===");

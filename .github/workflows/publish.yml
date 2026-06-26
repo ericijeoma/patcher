@@ -1,0 +1,74 @@
+name: Publish hexis-native SDKs
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers only when you push a tag like v1.0.0
+
+jobs:
+  # ==========================================
+  # JOB 1: Build & Publish to PyPI (Python)
+  # ==========================================
+  publish-python:
+    name: Build & Publish Python Wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # Cross-compiling for Linux, Windows, and macOS
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Build Wheels via Maturin
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist --features pyo3
+          
+      - name: Upload Wheels to PyPI
+        # Only upload once the Linux runner finishes to avoid race conditions
+        if: matrix.os == 'ubuntu-latest' 
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          pip install maturin
+          maturin upload dist/*
+
+  # ==========================================
+  # JOB 2: Build & Publish to NPM (JS/TS)
+  # ==========================================
+  publish-node:
+    name: Build & Publish NPM Package (WASM)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Build WASM for Node.js
+        run: wasm-pack build --target nodejs --out-dir pkg/node
+        
+      - name: Publish to NPM
+        run: npm publish --access public
+        working-directory: ./pkg/node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

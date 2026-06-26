@@ -33,13 +33,24 @@ impl HeuristicEngine {
         match op {
             "MOV" => {
                 if src == SymbolicValue::Uninitialized {
+                    // Dynamically format the message based on whether it's a register or memory
+                    let dest_name = if dst == Register::None {
+                        "memory".to_string()
+                    } else {
+                        format!("register {:?}", dst)
+                    };
+
                     return Some(VulnerabilityAlert {
                         vuln_type: VulnerabilityType::UninitializedMemoryRead,
-                        description: format!("Read from uninitialized storage into register {:?}", dst),
+                        description: format!("Read from uninitialized storage into {}", dest_name),
                         address_offset: addr_offset,
                     });
                 }
-                state.set_register(dst, src);
+                
+                // Only attempt to set the register state if it's an actual register
+                if dst != Register::None {
+                    state.set_register(dst, src);
+                }
             },
             "ADD" => {
                 let current_dst = state.get_register(dst);

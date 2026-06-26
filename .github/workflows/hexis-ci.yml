@@ -1,0 +1,34 @@
+name: CI Build and Hexis Scan
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest # Using Ubuntu saves compute minutes!
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # (Assume you have a step here that builds your .exe into a ./release folder)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: 🛡️ Run Hexis Zero-Trust Scan
+        env:
+          HEXIS_API_KEY: ${{ secrets.HEXIS_API_KEY }}
+          INPUT_PATH: './release' # Tell it where your compiled .exe files live
+          INPUT_FAIL_ON: 'high'   # Fail PR if Critical/High is detected
+        run: |
+          pnpm dlx tsx scan-ci.ts

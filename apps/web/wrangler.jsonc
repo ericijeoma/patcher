@@ -1,0 +1,9 @@
+// wrangler.jsonc  (in your frontend project folder)
+{
+  "name": "hexis-frontend",
+  "compatibility_date": "2026-06-23",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

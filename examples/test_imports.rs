@@ -1,4 +1,4 @@
-use patcher::loader::imports::{extract_imports, is_untrusted_source};
+use hexis_native::loader::imports::{extract_imports, is_untrusted_source};
 
 fn main() {
     // Test the import extraction functionality

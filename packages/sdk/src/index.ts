@@ -31,13 +31,21 @@ export interface ScanResult {
   scanTime: number; // milliseconds
 }
 
+export interface HexisOptions {
+  apiKey: string;
+  licenseKey?: string;
+  baseUrl?: string;
+}
+
 export class Hexis {
   private apiKey: string;
+  private licenseKey: string;
   private baseUrl: string;
   private wasmCache: string;
 
-  constructor(options: { apiKey: string; baseUrl?: string }) {
+  constructor(options: HexisOptions) {
     this.apiKey = options.apiKey;
+    this.licenseKey = options.licenseKey || options.apiKey;
     this.baseUrl = options.baseUrl ?? 'https://worker.hexis.dev';
     this.wasmCache = join(homedir(), '.hexis', 'engine.wasm');
   }
@@ -73,8 +81,25 @@ export class Hexis {
     return uint8Array;
   }
 
-  async scan(filePath: string, options?: { name?: string }): Promise<ScanResult> {
+  /**
+   * Set or update the license key for WASM engine validation
+   */
+  setLicenseKey(licenseKey: string): void {
+    this.licenseKey = licenseKey;
+  }
+
+  /**
+   * Get the current license key
+   */
+  getLicenseKey(): string {
+    return this.licenseKey;
+  }
+
+  async scan(filePath: string, options?: { name?: string; licenseKey?: string }): Promise<ScanResult> {
     const startTime = Date.now();
+
+    // Use provided license key or fallback to constructor option
+    const effectiveLicenseKey = options?.licenseKey || this.licenseKey;
 
     // 1. Resolve and read file
     const fileBuffer = await readFile(filePath);
@@ -84,9 +109,14 @@ export class Hexis {
     const wasmBytes = await this.ensureWasmCache();
 
     // 3. Import and initialize WASM module
-    const { analyze_binary_buffer } = await import(
+    const { analyze_binary_buffer, set_license_key } = await import(
       /* @vite-ignore */ `${this.baseUrl}/v1/engine.js`
     );
+
+    // Set the license key for WASM engine validation
+    if (effectiveLicenseKey) {
+      set_license_key(effectiveLicenseKey);
+    }
 
     // Initialize WASM (this would be the actual WASM initialization)
     // For now, we'll simulate this since we can't actually import WASM in Node.js

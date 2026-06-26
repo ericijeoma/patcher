@@ -1,11 +1,17 @@
 {
   "name": "hexis",
   "private": true,
+  "version": "0.1.0",
+  "bin": {
+    "hexis": "./scan.ts"
+  },
   "scripts": {
     "dev:web": "pnpm --filter web dev",
     "dev:worker": "pnpm --filter worker dev",
     "build": "pnpm --filter web build",
-    "deploy": "pnpm --filter worker deploy"
+    "deploy": "pnpm --filter worker deploy",
+    "scan": "tsx scan.ts",
+    "generate-license": "tsx scripts/generate-license.ts"
   },
   "devDependencies": {
     "dependency-cruiser": "^17.4.3",

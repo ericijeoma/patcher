@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use patcher::loader::extract_text_section;
+use hexis_native::loader::extract_text_section;
 
 fn main() {
     println!("=== Starting Live Binary Verification ===");

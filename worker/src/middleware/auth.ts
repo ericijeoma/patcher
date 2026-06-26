@@ -2,6 +2,7 @@ import { Context, Next } from 'hono';
 import { validateApiKey } from '../lib/keys';
 import { createAuth } from '../lib/auth';
 import { Env, Variables } from '../index';
+import { validateLicenseToken } from '../lib/license';
 
 export async function authMiddleware(c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) {
   const authHeader = c.req.header('Authorization');
@@ -11,6 +12,20 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: Vari
   }
 
   const token = authHeader.slice(7);
+
+  // License token path (hxs_lic_...) - Ed25519 signed offline tokens
+  if (token.startsWith('hxs_lic_')) {
+    const result = await validateLicenseToken(token, c.env);
+    if (!result.valid) {
+      return c.json({ error: 'Invalid license token' }, 401);
+    }
+    c.set('userId', result.customerId || 'license_user');
+    c.set('authMethod', 'license_token');
+    if (result.features) {
+      c.set('licenseFeatures', result.features);
+    }
+    return next();
+  }
 
   // API key path (hxs_live_...)
   if (token.startsWith('hxs_live_')) {
@@ -25,7 +40,7 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: Vari
 
   // Session token path (from Better Auth)
   // Better Auth sessions are validated via the auth instance
-  if (!token.startsWith('hxs_live_')) {
+  if (!token.startsWith('hxs_live_') && !token.startsWith('hxs_lic_')) {
     const auth = createAuth(c.env);
     const session = await auth.api.getSession({
       headers: c.req.raw.headers

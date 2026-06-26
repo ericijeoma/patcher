@@ -14,6 +14,7 @@ export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   AUTH_KV: KVNamespace; // Required for Better Auth session caching
+  LICENSE_PUBLIC_KEY?: KVNamespace; // For storing Ed25519 public key
   BETTER_AUTH_SECRET: string; // Required for Better Auth
   GITHUB_CLIENT_ID: string; // Required for Better Auth
   GITHUB_CLIENT_SECRET: string; // Required for Better Auth
@@ -23,6 +24,7 @@ export interface Env {
   PAYSTACK_PUBLIC_URL: string;
   RATE_LIMITER: any;
   HEXIS_WORKER_DSN: string; // <-- Add this line
+  HEXIS_PUBLIC_KEY?: string; // Ed25519 public key for license validation (base64)
 }
 
 // 🛡️ UNIFIED AUTH MIDDLEWARE: Supports both CLI API Keys and Web Sessions
@@ -78,6 +80,7 @@ const PLAN_LIMITS: Record<string, number | null> = {
 export type Variables = {
   userId: string;
   authMethod: string;
+  licenseFeatures?: string[];
 };
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -90,6 +93,7 @@ app.use(
       "http://localhost:3000",
       "https://hexis.com",
       "https://www.hexis.com",
+      "https://hexis-frontend.ericijeoma7767.workers.dev"
     ],
     allowHeaders: ["Content-Type", "Authorization", "X-Filename", "X-Hexis-Trace-Id"],
     allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],

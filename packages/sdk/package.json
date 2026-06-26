@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "pkg"
+  ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts"
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "prepack": "pnpm build"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

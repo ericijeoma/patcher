@@ -1,5 +1,5 @@
 use proptest::prelude::*;
-use patcher::analyzer::analyze_executable; 
+use hexis_native::analyzer::analyze_executable; 
 
 // Configure proptest to run a massive number of iterations to prove stability
 proptest! {
