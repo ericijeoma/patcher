@@ -8,3 +8,4 @@ worker/.dev.vars
 apps/web/.env
 apps/web/node_modules
 keys
+.venv
