@@ -7,3 +7,4 @@ worker/.dev.vars
 .env
 apps/web/.env
 apps/web/node_modules
+keys
